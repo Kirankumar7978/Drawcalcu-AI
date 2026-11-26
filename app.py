@@ -10,7 +10,6 @@ from google.genai.errors import ClientError
 st.set_page_config(page_title="AI Drawing Calculator", page_icon="🧮", layout="wide")
 st.title("🧮 AI Drawing Calculator")
 
-# Load API key from Streamlit Secrets if available, otherwise ask in sidebar
 default_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
 with st.sidebar:
     api_key = st.text_input("Gemini API Key", value=default_key, type="password", help="Get a free key from Google AI Studio").strip()
@@ -42,8 +41,8 @@ with col1:
 
       const getPos = (e) => {{
         const rect = canvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches.clientX : e.clientX;
-        const clientY = e.touches ? e.touches.clientY : e.clientY;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
         return [clientX - rect.left, clientY - rect.top];
       }};
 
@@ -98,7 +97,7 @@ with col2:
         else:
             with st.spinner("Reading handwriting and solving..."):
                 try:
-                    b64_str = canvas_data.split(",")
+                    b64_str = canvas_data.split(",")[1]
                     img = Image.open(io.BytesIO(base64.b64decode(b64_str))).convert("RGB")
                     client = genai.Client(api_key=api_key)
                     prompt = f"Transcribe this handwritten problem in LaTeX and solve it step-by-step. Hint: {extra_notes}"
