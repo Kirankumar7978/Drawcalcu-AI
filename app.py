@@ -5,6 +5,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 from PIL import Image
 from google import genai
+from google.genai.errors import ClientError
 
 st.set_page_config(page_title="AI Drawing Calculator", page_icon="🧮", layout="wide")
 st.title("🧮 AI Drawing Calculator")
@@ -12,7 +13,8 @@ st.title("🧮 AI Drawing Calculator")
 # Load API key from Streamlit Secrets if available, otherwise ask in sidebar
 default_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
 with st.sidebar:
-    api_key = st.text_input("Gemini API Key", value=default_key, type="password", help="Get a free key from Google AI Studio")
+    api_key = st.text_input("Gemini API Key", value=default_key, type="password", help="Get a free key from Google AI Studio").strip()
+    model_choice = st.selectbox("AI Model", ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-2.5-flash-lite"])
     pen_size = st.slider("Pen Thickness", 2, 12, 4)
 
 col1, col2 = st.columns([1.2, 1])
@@ -40,8 +42,8 @@ with col1:
 
       const getPos = (e) => {{
         const rect = canvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        const clientX = e.touches ? e.touches.clientX : e.clientX;
+        const clientY = e.touches ? e.touches.clientY : e.clientY;
         return [clientX - rect.left, clientY - rect.top];
       }};
 
@@ -95,9 +97,12 @@ with col2:
             st.warning("Click 'Send Drawing to AI ➔' under the board first.")
         else:
             with st.spinner("Reading handwriting and solving..."):
-                b64_str = canvas_data.split(",")[1]
-                img = Image.open(io.BytesIO(base64.b64decode(b64_str))).convert("RGB")
-                client = genai.Client(api_key=api_key)
-                prompt = f"Transcribe this handwritten problem in LaTeX and solve it step-by-step. Hint: {extra_notes}"
-                response = client.models.generate_content(model="gemini-2.5-flash", contents=[img, prompt])
-                st.markdown(response.text)
+                try:
+                    b64_str = canvas_data.split(",")
+                    img = Image.open(io.BytesIO(base64.b64decode(b64_str))).convert("RGB")
+                    client = genai.Client(api_key=api_key)
+                    prompt = f"Transcribe this handwritten problem in LaTeX and solve it step-by-step. Hint: {extra_notes}"
+                    response = client.models.generate_content(model=model_choice, contents=[img, prompt])
+                    st.markdown(response.text)
+                except ClientError as e:
+                    st.error(f"Gemini API Error ({e.code}): {e.message}")
