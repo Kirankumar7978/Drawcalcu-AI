@@ -1,5 +1,6 @@
 import base64
 import io
+import os
 import streamlit as st
 import streamlit.components.v1 as components
 from PIL import Image
@@ -8,21 +9,23 @@ from google import genai
 st.set_page_config(page_title="AI Drawing Calculator", page_icon="🧮", layout="wide")
 st.title("🧮 AI Drawing Calculator")
 
+# Load API key from Streamlit Secrets if available, otherwise ask in sidebar
+default_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
 with st.sidebar:
-    api_key = st.text_input("Gemini API Key", type="password", help="Get a free key from Google AI Studio")
+    api_key = st.text_input("Gemini API Key", value=default_key, type="password", help="Get a free key from Google AI Studio")
     pen_size = st.slider("Pen Thickness", 2, 12, 4)
 
 col1, col2 = st.columns([1.2, 1])
 
 with col1:
-    st.caption("1. Draw your problem below, then click **Send to AI**")
+    st.caption("1. Draw your problem below, then click **Send Drawing to AI ➔**")
     canvas_html = f"""
     <div style="font-family: sans-serif;">
-      <canvas id="board" width="600" height="400" style="border: 2px solid #555; border-radius: 8px; background: white; cursor: crosshair; touch-action: none;"></canvas>
+      <canvas id="board" width="580" height="380" style="border: 2px solid #555; border-radius: 8px; background: white; cursor: crosshair; touch-action: none;"></canvas>
       <div style="margin-top: 10px; display: flex; gap: 10px; align-items: center;">
         <button onclick="clearCanvas()" style="padding: 8px 16px; border-radius: 6px; border: 1px solid #ccc; cursor: pointer; font-weight: 600;">Clear Board</button>
         <button onclick="sendDrawing()" style="padding: 8px 18px; border-radius: 6px; border: none; background: #ff4b4b; color: white; cursor: pointer; font-weight: 600;">Send Drawing to AI ➔</button>
-        <span id="status" style="font-size: 13px; color: #4caf50;"></span>
+        <span id="status" style="font-size: 13px; color: #4caf50; font-weight: 600;"></span>
       </div>
     </div>
     <script>
@@ -65,17 +68,20 @@ with col1:
         const inputs = parentDoc.querySelectorAll('input[type="text"]');
         for (let inp of inputs) {{
           if (inp.getAttribute('aria-label') === 'hidden_canvas_data') {{
+            inp.focus();
             const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
             nativeSetter.call(inp, dataUrl);
             inp.dispatchEvent(new Event('input', {{ bubbles: true }}));
-            document.getElementById('status').innerText = 'Sent! Click "Solve Problem" on the right.';
+            inp.dispatchEvent(new KeyboardEvent('keydown', {{ key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }}));
+            inp.blur();
+            document.getElementById('status').innerText = 'Ready! Click "Solve Problem" ➔';
             break;
           }}
         }}
       }}
     </script>
     """
-    components.html(canvas_html, height=470)
+    components.html(canvas_html, height=450)
 
 with col2:
     st.caption("2. Add an optional hint and click **Solve Problem**")
@@ -84,7 +90,7 @@ with col2:
 
     if st.button("Solve Problem", type="primary", use_container_width=True):
         if not api_key:
-            st.error("Please enter your Gemini API Key in the sidebar.")
+            st.error("Open the sidebar (top-left > arrow) and enter your Gemini API Key.")
         elif not canvas_data.startswith("data:image/png;base64,"):
             st.warning("Click 'Send Drawing to AI ➔' under the board first.")
         else:
